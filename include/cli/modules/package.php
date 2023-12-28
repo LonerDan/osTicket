@@ -79,7 +79,7 @@ class Packager extends Deployment {
 
         // Deploy the `setup/scripts` folder to `/scripts`
         $root = $this->source;
-        Unpacker::unpackage("$root/setup/scripts/{,.}*", "$stage_path/scripts", -1);
+        Unpacker::unpackage("$root/setup/scripts", "$stage_path/scripts", -1);
 
         // Package up the staging area
         $version = exec('git describe');

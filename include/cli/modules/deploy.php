@@ -51,9 +51,11 @@ class Deployment extends Unpacker {
     function clean($local, $destination, $root, $recurse=0, $exclude=false) {
         $dryrun = $this->getOption('dry-run', false);
         $verbose = $dryrun || $this->getOption('verbose');
-        $destination = rtrim($destination, '/') . '/';
-        $contents = glob($destination.'{,.}*', GLOB_BRACE|GLOB_NOSORT);
-        foreach ($contents as $i=>$file) {
+        $destination = rtrim($destination, '/');
+        $contents = array_diff(scandir($destination, SCANDIR_SORT_NONE), array('.','..'));
+        $folders = [];
+        foreach ($contents as $file) {
+            $file = $destination.'/'.$file;
             $relative = str_replace($root, "", $file);
             if ($this->exclude($exclude, $relative))
                 continue;
@@ -65,19 +67,11 @@ class Deployment extends Unpacker {
                     $this->stdout->write("(delete): $file\n");
                 if (!$dryrun)
                     unlink($file);
-                unset($contents[$i]);
-            }
-            elseif (in_array(basename($file), array('.','..'))) {
-                // Doesn't indicate that the folder has contents
-                unset($contents[$i]);
-            }
+            } elseif (is_dir($file))
+                $folders[] = $file;
         }
         if ($recurse) {
-            $folders = glob(dirname($destination).'/'.basename($destination).'/*',
-                GLOB_BRACE|GLOB_ONLYDIR|GLOB_NOSORT);
             foreach ($folders as $dir) {
-                if (in_array(basename($dir), array('.','..')))
-                    continue;
                 $relative = str_replace($root, "", $dir);
                 if ($this->exclude($exclude, "$relative/"))
                     continue;
@@ -87,7 +81,7 @@ class Deployment extends Unpacker {
                     $root, $recurse - 1, $exclude);
             }
         }
-        if (!$contents || !empty(glob($destination.'{,.}*', GLOB_BRACE|GLOB_NOSORT))) {
+        if (is_dir($destination)) {
             if ($verbose)
                 $this->stdout->write("(delete-folder): $destination\n");
             if (!$dryrun)
@@ -263,10 +257,10 @@ class Deployment extends Unpacker {
             $exclusions[] = "$rootPattern/setup/*";
 
         # Unpack everything but the include/ folder
-        $this->unpackage("$root/{,.}*", $this->destination, -1,
+        $this->unpackage($root, $this->destination, -1,
             $exclusions);
         # Unpack the include folder
-        $this->unpackage("$root/include/{,.}*", $include, -1,
+        $this->unpackage("$root/include", $include, -1,
             array("*/include/ost-config.php", "*.sw[a-z]"));
         if (!$options['dry-run']) {
             if ($include != "{$this->destination}/include/")

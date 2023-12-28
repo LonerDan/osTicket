@@ -157,9 +157,11 @@ class Unpacker extends Module {
         $dryrun = $this->getOption('dry-run', false);
         $verbose = $this->getOption('verbose') || $dryrun;
         $force = $this->getOption('force', false);
-        if (substr($destination, -1) !== '/')
+        if (!str_ends_with($destination, '/'))
             $destination .= '/';
-        foreach (glob($folder, GLOB_BRACE|GLOB_NOSORT) as $file) {
+        $folders = [];
+        foreach (scandir($folder, SCANDIR_SORT_NONE) as $file) {
+            $file = $folder.'/'.$file;
             if ($this->exclude($exclude, $file))
                 continue;
             if (is_file($file)) {
@@ -179,11 +181,10 @@ class Unpacker extends Module {
                 if (!is_dir($destination))
                     mkdir($destination, 0755, true);
                 $this->copyFile($file, $target, $hash);
-            }
+            } elseif (is_dir($file))
+                $folders[] = $file;
         }
         if ($recurse) {
-            $folders = glob(dirname($folder).'/'.basename($folder),
-                GLOB_BRACE|GLOB_ONLYDIR|GLOB_NOSORT);
             foreach ($folders as $dir) {
                 if (in_array(basename($dir), array('.','..')))
                     continue;
@@ -248,7 +249,7 @@ class Unpacker extends Module {
             # Get the current value of the INCLUDE_DIR before overwriting
             # main.inc.php
             $include = $this->get_include_dir();
-        $this->unpackage("$upload/{,.}*", $this->destination, -1, "*include");
+        $this->unpackage($upload, $this->destination, -1, "*include");
 
         if (!$upgrade) {
             if ($this->getOption('include')) {
@@ -256,14 +257,14 @@ class Unpacker extends Module {
                 if (!is_dir("$location/"))
                     if (!mkdir("$location/", 0751, true))
                         die("Unable to create folder for include/ files\n");
-                $this->unpackage("$upload/include/{,.}*", $location, -1);
+                $this->unpackage("$upload/include", $location, -1);
                 $this->change_include_dir($location);
             }
             else
-                $this->unpackage("$upload/include/{,.}*", "{$this->destination}/include", -1);
+                $this->unpackage("$upload/include", "{$this->destination}/include", -1);
         }
         else {
-            $this->unpackage("$upload/include/{,.}*", $include, -1);
+            $this->unpackage("$upload/include", $include, -1);
             # Change the new main.inc.php to reflect the location of the
             # include/ directory
             $this->change_include_dir($include);
